@@ -4,7 +4,9 @@ from langchain_community.document_loaders import TextLoader
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.document_loaders import UnstructuredURLLoader
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import OllamaEmbeddings
+from langchain.retrievers import EnsembleRetriever
+from langchain_community.retrievers import BM25Retriever
+from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 from langchain_community.document_loaders import SeleniumURLLoader
 from langchain_community.utilities import SearxSearchWrapper
 import ollama
@@ -17,7 +19,7 @@ import pprint
 config = {"model":"mistral",
           "local_RAG": True, 
           "dir_path": "./RAG_dir", 
-          "init_embedding":False,
+          "init_embedding":True,
           "embedding_dir":"./embedding", 
           "search": True}
 
@@ -29,16 +31,26 @@ def local_RAG():
         docs = loader.load()
         #print(docs[0].page_content)
         #print(docs[0].metadata)
-        embeddings = OllamaEmbeddings(model=config["model"])
+        #embeddings = OllamaEmbeddings(model=config["model"])
+        embeddings = HuggingFaceBgeEmbeddings(
+            model_name = 'BAAI/bge-large-en-v1.5',
+            model_kwargs = {"device": "cuda"},
+            encode_kwargs = {"normalize_embeddings": True}
+        )
         if config["init_embedding"]:
             print("----- Initial embedding enabled -----")
-            text_spliter = RecursiveCharacterTextSplitter(chunk_size = 1000, chunk_overlap=200)
+            text_spliter = RecursiveCharacterTextSplitter(chunk_size = 500, chunk_overlap=0)
             splits = text_spliter.split_documents(docs)
             vectorstores = Chroma.from_documents(splits, embedding=embeddings, persist_directory=config["embedding_dir"])
         else:
             vectorstores = Chroma(persist_directory=config["embedding_dir"], embedding_function=embeddings)
         
-        retriever = vectorstores.as_retriever(search_kwargs={'k':5})
+
+        v_retriever = vectorstores.as_retriever(search_kwargs={'k':5})
+        bm25_retriever = BM25Retriever.from_documents(splits, kwargs=5)
+        retriever = EnsembleRetriever(
+            retrievers=[bm25_retriever, v_retriever], weights=[0.5, 0.5]
+        )
         return retriever
 
 
@@ -124,13 +136,13 @@ def internet_search(query):
 
 
 #internet_search("-site:wikipedia.org Why are entry level jobs require so many experience")
-p = "nerdy CS pickup line"
-#result = rag_chain(p)
+p = "what is the paper about"
+result = rag_chain(p)
 
-#print("--------------------- AI RESPONSE ----------------------------")
-#for chunk in result:
-#    print(chunk['message']['content'], end='', flush=True)
-internet_search(p)
+print("--------------------- AI RESPONSE ----------------------------")
+for chunk in result:
+    print(chunk['message']['content'], end='', flush=True)
+#internet_search(p)
 
 
 
