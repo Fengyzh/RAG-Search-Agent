@@ -17,21 +17,17 @@ import pprint
 
 
 config = {"model":"mistral",
-          "local_RAG": True, 
+          "local_RAG": False, 
           "dir_path": "./RAG_dir", 
-          "init_embedding":True,
+          "init_embedding":False,
           "embedding_dir":"./embedding", 
           "search": True}
 
 def local_RAG():
     if config["local_RAG"]: 
         path = config["dir_path"]
-        #text_loader_kwargs={'encoding': "UTF-8"}
         loader = DirectoryLoader(path, glob="**/*.pdf", loader_cls=PyPDFLoader)
         docs = loader.load()
-        #print(docs[0].page_content)
-        #print(docs[0].metadata)
-        #embeddings = OllamaEmbeddings(model=config["model"])
         embeddings = HuggingFaceBgeEmbeddings(
             model_name = 'BAAI/bge-large-en-v1.5',
             model_kwargs = {"device": "cuda"},
@@ -82,14 +78,8 @@ def rag_chain(q):
     formatted_context = format_docs(retrieved_docs)
     return ollama_llm(q, formatted_context)  
 
-#result = rag_chain("What is the script about? and write the documention according to the steps about a Python coding project")
-
-#print("--------------------- AI RESPONSE ----------------------------")
-#for chunk in result:
-#    print(chunk['message']['content'], end='', flush=True)
 
 def q_web_format(web):
-    #return web.replace("\n", "")
     temp = web.split("\\n")
     doc = "".join(temp)
     return doc.replace("\n", " ")
@@ -100,11 +90,10 @@ def internet_search(query):
     search = SearxSearchWrapper(searx_host="http://localhost:8080")
     results = search.results(
         query,
-        num_results=1,
+        num_results=3,
         engines="google",
         time_range="year",
     )
-    #pprint.pp(results[0]['link'])
     for j in range(len(results)):
         urls.append(results[j]['link'])
     url_loader = SeleniumURLLoader(urls=urls)
@@ -117,15 +106,11 @@ def internet_search(query):
     for i in range(len(urls)):
         print(f"\n\n ------- No.{i+1} Doc ------- \n\n")
         source = data[i].metadata['source']
-        #pprint.pp(q_web_format(data[0].page_content))
-
-        #prompt = f"In great detail can you list and summarize the following website content? Use the provided content only! include a conclusion as well. Source link will be provided in the 'Source: ' you must state the source link at the beginning of your response with the format 'Source: (The Link Provided)' Only. \n Source:{source} Content: \n\n{q_web_format(data[i].page_content)} \n\n"
-
         prompt = f"List the following content, you must use the content provided only! If you receive a error response code based on the content, you must state 'Fail to load website' and stop. Source link will be provided in the 'Source: ' you must state the source link at the beginning of your response. \n Source:{source} Content: \n\n{q_web_format(data[0].page_content)} \n\n"
 
-        print(q_web_format(data[0].page_content))
+        #print(q_web_format(data[0].page_content))
         print("----- Reponse -----")
-
+        print("Source: ", source)
         response = ollama.chat(
         model='dolphin-mistral',
         messages=[{'role': 'user', 'content': prompt}],
@@ -135,14 +120,7 @@ def internet_search(query):
             print(chunk['message']['content'], end='', flush=True)
 
 
-#internet_search("-site:wikipedia.org Why are entry level jobs require so many experience")
-p = "what is the paper about"
-result = rag_chain(p)
-
-print("--------------------- AI RESPONSE ----------------------------")
-for chunk in result:
-    print(chunk['message']['content'], end='', flush=True)
-#internet_search(p)
+internet_search("What is the company Engtal?")
 
 
 
