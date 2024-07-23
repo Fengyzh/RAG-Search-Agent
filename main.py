@@ -108,7 +108,6 @@ def internet_search(query):
         source = data[i].metadata['source']
         prompt = f"List the following content, you must use the content provided only! If you receive a error response code based on the content, you must state 'Fail to load website' and stop. Source link will be provided in the 'Source: ' you must state the source link at the beginning of your response. \n Source:{source} Content: \n\n{q_web_format(data[0].page_content)} \n\n"
 
-        #print(q_web_format(data[0].page_content))
         print("----- Reponse -----")
         print("Source: ", source)
         response = ollama.chat(
